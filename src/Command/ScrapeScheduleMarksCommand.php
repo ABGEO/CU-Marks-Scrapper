@@ -5,6 +5,7 @@ namespace App\Command;
 use Goutte\Client;
 use InvalidArgumentException;
 use Symfony\Bundle\FrameworkBundle\Command\ContainerAwareCommand;
+use Symfony\Component\Config\Definition\Exception\Exception;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -43,7 +44,7 @@ class ScrapeScheduleMarksCommand extends ContainerAwareCommand
         $scheduleIds = $input->getArgument('scheduleIds');
 
         if (!$scheduleIds) {
-            throw new InvalidArgumentException('Please, pass scheduleId!');
+            throw new InvalidArgumentException('Please, pass scheduleIds!');
         }
 
         //Create new User-Agent
@@ -74,10 +75,14 @@ class ScrapeScheduleMarksCommand extends ContainerAwareCommand
         }
 
         foreach ($scheduleIds as $scheduleId) {
-            $io->success("Starting scrapping schedule No: {$scheduleId}");
-
             //Get marks page HTML
             $marks = $client->request('POST', $this->baseURL . '/cu/controllers/GradesList', ['iddd' => $scheduleId]);
+
+            if (strpos($content = $marks->html(), 'ავტორიზაცია') !== false) {
+                throw new Exception('Invalid Credentials!');
+            }
+
+            $io->success("Starting scrapping schedule No: {$scheduleId}");
 
             //Write HTML to file
             if (strpos($content = $marks->html(), 'გამოცდის ქულები არ არის სრულად შეყვანილი') === false) {
