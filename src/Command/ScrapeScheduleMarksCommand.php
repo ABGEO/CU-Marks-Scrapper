@@ -34,19 +34,17 @@ class ScrapeScheduleMarksCommand extends ContainerAwareCommand
         $this->CUPassword = getenv('SCRAPPER_PASSWORD');
 
         $this->setDescription('Scrape marks from CU Schedule')
-            ->addArgument('scheduleId', InputArgument::OPTIONAL, 'Schedule ID');
+            ->addArgument('scheduleIds', InputArgument::IS_ARRAY, 'Schedule IDs');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output)
     {
         $io = new SymfonyStyle($input, $output);
-        $scheduleId = $input->getArgument('scheduleId');
+        $scheduleIds = $input->getArgument('scheduleIds');
 
-        if (!$scheduleId) {
+        if (!$scheduleIds) {
             throw new InvalidArgumentException('Please, pass scheduleId!');
         }
-
-        $io->success("Starting scrapping schedule No: {$scheduleId}");
 
         //Create new User-Agent
         $client = new Client();
@@ -67,25 +65,29 @@ class ScrapeScheduleMarksCommand extends ContainerAwareCommand
         //Submit form
         $client->submit($loginForm);
 
-        //Get marks page HTML
-        $marks = $client->request('POST', $this->baseURL . '/cu/controllers/GradesList', ['iddd' => $scheduleId]);
+        //Create marks folder if don't exists
 
-        //Write HTML to file
-        if (strpos($content = $marks->html(), 'გამოცდის ქულები არ არის სრულად შეყვანილი') === false) {
-            //Create marks folder if don't exists
+        $marksPath = $this->getContainer()->get('kernel')->getRootDir().'/..'.$this->marksPath;
 
-            $marksPath = $this->getContainer()->get('kernel')->getRootDir().'/..'.$this->marksPath;
+        if (!$filesystem->exists($marksPath)) {
+            $filesystem->mkdir($marksPath, 0700);
+        }
 
-            if (!$filesystem->exists($marksPath)) {
-                $filesystem->mkdir($marksPath, 0700);
+        foreach ($scheduleIds as $scheduleId) {
+            $io->success("Starting scrapping schedule No: {$scheduleId}");
+
+            //Get marks page HTML
+            $marks = $client->request('POST', $this->baseURL . '/cu/controllers/GradesList', ['iddd' => $scheduleId]);
+
+            //Write HTML to file
+            if (strpos($content = $marks->html(), 'გამოცდის ქულები არ არის სრულად შეყვანილი') === false) {
+                //Write to file
+                file_put_contents("{$marksPath}/schedule_{$scheduleId}.html", $content);
+
+                $io->success("Schedule with No: {$scheduleId} successfully scrapped!");
+            } else {
+                $io->warning("Schedule with No: {$scheduleId} not found!");
             }
-
-            //Write to file
-            file_put_contents("{$marksPath}/schedule_{$scheduleId}.html", $content);
-
-            $io->success("Schedule with No: {$scheduleId} successfully scrapped!");
-        } else {
-            $io->warning("Schedule with No: {$scheduleId} not found!");
         }
     }
 }
