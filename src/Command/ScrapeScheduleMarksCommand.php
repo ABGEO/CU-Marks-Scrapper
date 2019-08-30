@@ -54,7 +54,7 @@ class ScrapeScheduleMarksCommand extends ContainerAwareCommand
 
         //Log In in profile
 
-        $loginPost = $client->request('POST', $this->baseURL . '/cu/login?');
+        $loginPost = $client->request('POST', $this->baseURL . '/cu/loginStud?');
 
         $loginForm = $loginPost->selectButton('შესვლა')->form();
 
